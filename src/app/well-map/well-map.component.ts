@@ -19,6 +19,7 @@ export class WellMapComponent implements OnInit {
   markers: any = markers;
   routeData: any;
   count: number = 0;
+  // countList: number[];
   constructor() { }
 
   ngOnInit() {
@@ -28,7 +29,8 @@ export class WellMapComponent implements OnInit {
   }
 
   private getRouteData(): void {
-    this.routeData = data1.features[0].geometry.coordinates;
+    // this.routeData = data1.features[1].geometry.coordinates;
+    this.routeData = data1.features.map((each) => each.geometry.coordinates);
   }
 
   private initMap(): void {
@@ -37,7 +39,7 @@ export class WellMapComponent implements OnInit {
     this.map = new mapboxgl.Map({
         container: 'map',
         style: this.style,
-        zoom: 15,
+        zoom: 12,
         center: [
           -73.78299,
           40.64857
@@ -50,13 +52,6 @@ export class WellMapComponent implements OnInit {
     this.map.on("load", () => {
       this.addMarkerSource();
       this.addMarkerLayer();
-      // this.addLineSource();
-      // this.addLineLayer();  
-      // function animateMarker() {
-      //   this.map.getSource('point').setData(this.pointPosition(this.routeData[this.count]));
-      //   this.count++;
-      //   requestAnimationFrame(animateMarker);
-      // }
          
         // Start the animation.
       this.animateMarker();      
@@ -68,32 +63,22 @@ export class WellMapComponent implements OnInit {
   }
  
 
-
-
-  private produceMarkerGeoJSON(markers): any {
-    return {
-      "type": "FeatureCollection",
-      "features": markers.map((each) => {
-        return {
-          "type": "Feature",
-          "geometry": {
-            "type": "Point",
-            coordinates: [each.lng, each.lat]
-          }
-        }
-      })
-    }
-  }
-
   private animateMarker(): void {
-    const source: mapboxgl.GeoJSONSource = this.map.getSource('point') as mapboxgl.GeoJSONSource;
-    const routeInterval  = window.setInterval(() => {
-      source.setData(this.pointPosition(this.routeData[this.count]));
-      this.count++; 
-      if (this.count === this.routeData.length) {
-        window.clearInterval(routeInterval)
-      }
-    }, 16);
+    const routeIntervalList = [];
+    const sourceList = [];
+    const countList = [];
+    this.routeData.forEach((each, index) => {
+      const source: mapboxgl.GeoJSONSource = this.map.getSource(`point-${index}`) as mapboxgl.GeoJSONSource;
+      sourceList.push(source);
+      countList.push(0);
+      routeIntervalList[index] = window.setInterval(() => {
+        sourceList[index].setData(this.pointPosition(each[countList[index]]))
+        countList[index]++;
+        if (countList[index] === each.length) {
+          window.clearInterval(routeIntervalList[index]);
+        }
+      }, 200);
+    })
   }
 
   private pointPosition(marker): any {
@@ -104,68 +89,25 @@ export class WellMapComponent implements OnInit {
   }
 
   private addMarkerSource(): void {
-    this.map.addSource('point', {
-      "type": "geojson",
-      "data": this.pointPosition(this.routeData[0])
+    this.routeData.forEach((each, index) => {
+      this.map.addSource(`point-${index}`, {
+        type: "geojson",
+        data: this.pointPosition(each[0]) // init position
       });
+    })
   }
 
   private addMarkerLayer(): void {
-    this.map.addLayer({
-      "id": "point",
-      "source": "point",
-      "type": "circle",
-      "paint": {
-        "circle-radius": 10,
-        "circle-color": "#ffa35c"
-      }
-    });
-  }
-
-  private addLineLayer(): void {
-    this.map.addLayer({
-      "id": "park-boundary",
-      "type": "fill",
-      "source": "national-park",
-      "paint": {
-      "fill-color": "#888888",
-      "fill-opacity": 0.4
-      },
-      "filter": ["==", "$type", "Polygon"]
-      });
-       
+    this.routeData.forEach((each, index) => {
       this.map.addLayer({
-      "id": "park-volcanoes",
-      "type": "circle",
-      "source": "national-park",
-      "paint": {
-      "circle-radius": 6,
-      "circle-color": "#B42222"
-      },
-      "filter": ["==", "$type", "Point"],
-      });
-
-      this.map.addLayer({
-        "id": "park-lines",
-        "type": "line",
-        "source": "national-park",
+        "id": `point-${index}`,
+        "source": `point-${index}`,
+        "type": "circle",
         "paint": {
-          "line-color": "#ffa35c",
-          "line-width": 8
-        },
-        "filter": ["==", "$type", "LineString"],
-        });      
-  }
-
-  private addLineSource(): void {
-    console.log(1223, data1.features.map(each => each));
-    this.map.addSource("national-park", {
-      "type": "geojson",
-      "data": {
-      "type": "FeatureCollection",
-      "features": []
-      }
+          "circle-radius": 5,
+          "circle-color": "#ffa35c"
+        }
       });
+    })
   }
-
 }
